@@ -1,0 +1,247 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  password     String
+  email        String?   @unique
+  role         Role      @default(VIEWER)
+  active       Boolean   @default(true)
+  twoFaSecret  String?
+  twoFaActive  Boolean   @default(false)
+  backupCodes  String[]
+  timezone     String?
+  theme        String    @default("auto")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  monitors     Monitor[]
+  apiKeys      ApiKey[]
+  auditLogs    AuditLog[]
+}
+
+model Monitor {
+  id                  Int       @id @default(autoincrement())
+  userId              Int
+  name                String
+  type                String
+  active              Boolean   @default(true)
+  interval            Int       @default(60)
+  retryInterval       Int       @default(60)
+  maxRetries          Int       @default(1)
+  notificationDelay   Int       @default(0)
+  resendInterval      Int       @default(0)
+  upsideDown          Boolean   @default(false)
+  config              Json
+  lastStatus          Boolean?
+  lastPing            Float?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user                User      @relation(fields: [userId], references: [id])
+  heartbeats          Heartbeat[]
+  tags                MonitorTag[]
+  notifications       MonitorNotification[]
+  maintenances        MaintenanceMonitor[]
+  statusPageMonitors  StatusPageMonitor[]
+}
+
+model Heartbeat {
+  id           Int       @id @default(autoincrement())
+  monitorId    Int
+  status       Boolean
+  ping         Float?
+  msg          String?
+  important    Boolean   @default(false)
+  downCount    Int       @default(0)
+  duration     Int       @default(0)
+  retries      Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  monitor      Monitor   @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@index([monitorId, createdAt])
+}
+
+model Tag {
+  id        Int          @id @default(autoincrement())
+  userId    Int
+  name      String
+  color     String
+  monitors  MonitorTag[]
+}
+
+model MonitorTag {
+  monitorId  Int
+  tagId      Int
+  value      String?
+
+  monitor    Monitor  @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([monitorId, tagId])
+}
+
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  name      String
+  type      String
+  config    Json
+  isDefault Boolean   @default(false)
+
+  monitors  MonitorNotification[]
+}
+
+model MonitorNotification {
+  monitorId      Int
+  notificationId Int
+
+  monitor        Monitor      @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@id([monitorId, notificationId])
+}
+
+model StatusPage {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  slug            String    @unique
+  title           String
+  description     String?
+  theme           String    @default("auto")
+  published       Boolean   @default(false)
+  customDomain    String?   @unique
+  customCss       String?
+  footerText      String?
+  showTags        Boolean   @default(false)
+  googleAnalytics String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  monitors        StatusPageMonitor[]
+  incidents       Incident[]
+}
+
+model StatusPageMonitor {
+  statusPageId  Int
+  monitorId     Int
+  groupName     String?
+  ordering      Int       @default(0)
+
+  statusPage    StatusPage @relation(fields: [statusPageId], references: [id], onDelete: Cascade)
+  monitor       Monitor    @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@id([statusPageId, monitorId])
+}
+
+model Incident {
+  id           Int              @id @default(autoincrement())
+  statusPageId Int
+  title        String
+  content      String
+  severity     IncidentSeverity @default(MINOR)
+  status       IncidentStatus   @default(INVESTIGATING)
+  pinned       Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  statusPage   StatusPage       @relation(fields: [statusPageId], references: [id], onDelete: Cascade)
+  updates      IncidentUpdate[]
+}
+
+enum IncidentSeverity {
+  CRITICAL
+  MAJOR
+  MINOR
+  MAINTENANCE
+}
+
+enum IncidentStatus {
+  INVESTIGATING
+  IDENTIFIED
+  MONITORING
+  RESOLVED
+}
+
+model IncidentUpdate {
+  id         Int      @id @default(autoincrement())
+  incidentId Int
+  content    String
+  status     IncidentStatus
+  createdAt  DateTime @default(now())
+
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+}
+
+model MaintenanceWindow {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  title       String
+  strategy    String
+  active      Boolean   @default(true)
+  startDate   DateTime?
+  endDate     DateTime?
+  weekdays    Int[]
+  hours       Int[]
+  durationMinutes Int   @default(60)
+  cronExpr    String?
+  timezone    String    @default("UTC")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  monitors    MaintenanceMonitor[]
+}
+
+model MaintenanceMonitor {
+  maintenanceId Int
+  monitorId     Int
+
+  maintenance   MaintenanceWindow @relation(fields: [maintenanceId], references: [id], onDelete: Cascade)
+  monitor       Monitor           @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@id([maintenanceId, monitorId])
+}
+
+model ApiKey {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  name       String
+  key        String    @unique
+  permission String    @default("read")
+  active     Boolean   @default(true)
+  expires    DateTime?
+  createdAt  DateTime  @default(now())
+
+  user       User      @relation(fields: [userId], references: [id])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  action    String
+  entity    String?
+  entityId  Int?
+  meta      Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
