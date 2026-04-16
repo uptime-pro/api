@@ -35,6 +35,7 @@ export class ApiKeyGuard implements CanActivate {
           username: apiKey.user.username,
           role: apiKey.user.role,
         };
+        req['apiKeyPermission'] = apiKey.permission;
         return true;
       }
     }
