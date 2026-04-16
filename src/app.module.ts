@@ -19,6 +19,7 @@ import { MetricsModule } from './modules/metrics/metrics.module.js';
 import { BadgeModule } from './modules/badge/badge.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { ReportModule } from './modules/report/report.module.js';
+import { InfrastructureModule } from './modules/infrastructure/infrastructure.module.js';
 import { AdminQueueMiddleware } from './middleware/admin-queue.middleware.js';
 
 @Module({
@@ -40,6 +41,7 @@ import { AdminQueueMiddleware } from './middleware/admin-queue.middleware.js';
     BadgeModule,
     HealthModule,
     ReportModule,
+    InfrastructureModule,
     BullBoardModule.forRoot({
       route: '/admin/queues',
       adapter: ExpressAdapter,
