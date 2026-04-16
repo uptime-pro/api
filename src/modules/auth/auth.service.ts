@@ -192,10 +192,10 @@ export class AuthService {
   }
 
   private setAuthCookie(res: Response, token: string): void {
-    const isProduction = this.config.get('NODE_ENV') === 'production';
+    const secure = this.config.get('COOKIE_SECURE') === 'true';
     res.cookie(COOKIE_NAME, token, {
       httpOnly: true,
-      secure: isProduction,
+      secure,
       sameSite: 'strict',
       path: '/',
       maxAge: 30 * 24 * 60 * 60 * 1000,
