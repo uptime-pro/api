@@ -73,6 +73,7 @@ model Heartbeat {
   downCount    Int       @default(0)
   duration     Int       @default(0)
   retries      Int       @default(0)
+  meta         Json?
   createdAt    DateTime  @default(now())
 
   monitor      Monitor   @relation(fields: [monitorId], references: [id], onDelete: Cascade)

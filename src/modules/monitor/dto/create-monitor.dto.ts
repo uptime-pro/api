@@ -6,7 +6,7 @@ const MONITOR_TYPES = [
   'websocket', 'postgres', 'mysql', 'mssql', 'mongodb',
   'redis', 'rabbitmq', 'mqtt', 'docker', 'grpc',
   'steam', 'gamedig', 'tailscale-ping', 'snmp', 'smtp',
-  'sip', 'manual', 'group',
+  'sip', 'manual', 'group', 'ssl-cert', 'domain-expiry',
 ] as const;
 
 export class CreateMonitorDto {

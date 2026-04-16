@@ -133,6 +133,7 @@ export class MonitorService {
         ping: result.ping,
         msg: result.message,
         important: changed,
+        ...(result.meta ? { meta: result.meta as never } : {}),
       },
     });
     await this.prisma.monitor.update({

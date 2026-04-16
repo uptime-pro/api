@@ -23,6 +23,8 @@ import { SmtpCheckStrategy } from './smtp-check.strategy.js';
 import { SipStrategy } from './sip.strategy.js';
 import { ManualStrategy } from './manual.strategy.js';
 import { GroupStrategy } from './group.strategy.js';
+import { SslCertStrategy } from './ssl-cert.strategy.js';
+import { DomainExpiryStrategy } from './domain-expiry.strategy.js';
 
 @Injectable()
 export class MonitorStrategyRegistry {
@@ -52,6 +54,8 @@ export class MonitorStrategyRegistry {
     private readonly sipStrategy: SipStrategy,
     private readonly manualStrategy: ManualStrategy,
     private readonly groupStrategy: GroupStrategy,
+    private readonly sslCertStrategy: SslCertStrategy,
+    private readonly domainExpiryStrategy: DomainExpiryStrategy,
   ) {
     this.strategies = new Map([
       ['http', this.httpStrategy],
@@ -77,6 +81,8 @@ export class MonitorStrategyRegistry {
       ['sip', this.sipStrategy],
       ['manual', this.manualStrategy],
       ['group', this.groupStrategy],
+      ['ssl-cert', this.sslCertStrategy],
+      ['domain-expiry', this.domainExpiryStrategy],
     ]);
   }
 

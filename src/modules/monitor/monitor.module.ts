@@ -28,6 +28,8 @@ import { SmtpCheckStrategy } from './strategies/smtp-check.strategy.js';
 import { SipStrategy } from './strategies/sip.strategy.js';
 import { ManualStrategy } from './strategies/manual.strategy.js';
 import { GroupStrategy } from './strategies/group.strategy.js';
+import { SslCertStrategy } from './strategies/ssl-cert.strategy.js';
+import { DomainExpiryStrategy } from './strategies/domain-expiry.strategy.js';
 import { MaintenanceService } from './maintenance.service.js';
 import { MonitorWorker } from '../../workers/monitor.worker.js';
 import { NotificationModule } from '../notification/notification.module.js';
@@ -70,6 +72,8 @@ import { AuditModule } from '../../audit/audit.module.js';
     SipStrategy,
     ManualStrategy,
     GroupStrategy,
+    SslCertStrategy,
+    DomainExpiryStrategy,
     MaintenanceService,
     MonitorWorker,
   ],
