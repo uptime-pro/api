@@ -160,10 +160,59 @@ export class StatusPageService {
         })
       : [];
 
+    // Build 90-day daily uptime history for each monitor
+    const days = 90;
+    const now = new Date();
+    const since = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+    const allHeartbeats = monitorIds.length
+      ? await this.prisma.heartbeat.findMany({
+          where: { monitorId: { in: monitorIds }, createdAt: { gte: since } },
+          select: { monitorId: true, status: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
+        })
+      : [];
+
+    // Group heartbeats by monitorId → day bucket
+    const uptimeByMonitor = new Map<number, { date: string; up: number; total: number }[]>();
+    for (const id of monitorIds) {
+      const buckets: Map<string, { up: number; total: number }> = new Map();
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const key = d.toISOString().slice(0, 10);
+        buckets.set(key, { up: 0, total: 0 });
+      }
+      for (const hb of allHeartbeats) {
+        if (hb.monitorId !== id) continue;
+        const key = hb.createdAt.toISOString().slice(0, 10);
+        const bucket = buckets.get(key);
+        if (bucket) {
+          bucket.total++;
+          if (hb.status) bucket.up++;
+        }
+      }
+      uptimeByMonitor.set(
+        id,
+        Array.from(buckets.entries()).map(([date, v]) => ({ date, ...v })),
+      );
+    }
+
+    // 30-day overall uptime % per monitor
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const recentHeartbeats = allHeartbeats.filter((h) => h.createdAt >= thirtyDaysAgo);
+    const uptimePctByMonitor = new Map<number, number>();
+    for (const id of monitorIds) {
+      const hbs = recentHeartbeats.filter((h) => h.monitorId === id);
+      const pct = hbs.length > 0 ? Math.round((hbs.filter((h) => h.status).length / hbs.length) * 10000) / 100 : 100;
+      uptimePctByMonitor.set(id, pct);
+    }
+
     return {
+      id: page.id,
       title: page.title,
       slug: page.slug,
       description: page.description,
+      published: page.published,
       theme: page.theme,
       customCss: page.customCss,
       footerText: page.footerText,
@@ -173,35 +222,37 @@ export class StatusPageService {
         id: m.monitor.id,
         name: m.monitor.name,
         type: m.monitor.type,
-        lastStatus: m.monitor.lastStatus,
-        lastPing: m.monitor.lastPing,
         groupName: m.groupName,
         ordering: m.ordering,
+        lastStatus:
+          m.monitor.lastStatus === true
+            ? 'up'
+            : m.monitor.lastStatus === false
+              ? 'down'
+              : 'pending',
+        lastPing: m.monitor.lastPing,
+        uptimePct: uptimePctByMonitor.get(m.monitor.id) ?? 100,
+        history: uptimeByMonitor.get(m.monitor.id) ?? [],
       })),
       incidents: page.incidents.map((inc) => ({
         id: inc.id,
         title: inc.title,
-        content: inc.content,
+        message: inc.content,
         severity: inc.severity,
         status: inc.status,
-        pinned: inc.pinned,
         createdAt: inc.createdAt,
         updates: inc.updates.map((u) => ({
           id: u.id,
-          content: u.content,
+          message: u.content,
           status: u.status,
           createdAt: u.createdAt,
         })),
       })),
       maintenanceWindows: maintenanceWindows.map((mw) => ({
         id: mw.id,
-        title: mw.title,
-        strategy: mw.strategy,
-        startDate: mw.startDate,
-        endDate: mw.endDate,
-        weekdays: mw.weekdays,
-        hours: mw.hours,
-        durationMinutes: mw.durationMinutes,
+        name: mw.title,
+        startTime: mw.startDate,
+        endTime: mw.endDate,
       })),
     };
   }
