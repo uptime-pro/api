@@ -46,8 +46,10 @@ export class WebSocketStrategy implements MonitorStrategy {
       criticalDays: sslCriticalDays,
     });
 
+    const certState = sslResult.meta?.certState;
+    const sslFails = certState === 'critical' || certState === 'expired';
     return {
-      status: sslResult.status ? wsResult.status : false,
+      status: sslFails ? false : wsResult.status,
       ping: wsResult.ping,
       message: `${wsResult.message} | ${sslResult.message}`,
       meta: { ssl: sslResult.meta },

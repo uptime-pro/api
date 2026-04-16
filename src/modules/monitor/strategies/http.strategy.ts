@@ -77,13 +77,14 @@ export class HttpStrategy implements MonitorStrategy {
         });
         combinedMeta['ssl'] = sslResult.meta;
         combinedMessage = `${combinedMessage} | ${sslResult.message}`;
-        if (!sslResult.status) {
+        const certState = sslResult.meta?.certState;
+        if (certState === 'critical' || certState === 'expired') {
           combinedStatus = false;
         }
       }
     }
 
-    if (combinedStatus && checkDomain) {
+    if (checkDomain) {
       const hostname = new URL(url).hostname;
       const domainResult = await checkDomainExpiry(hostname, {
         warningDays: domainWarningDays,
@@ -91,7 +92,8 @@ export class HttpStrategy implements MonitorStrategy {
       });
       combinedMeta['domain'] = domainResult.meta;
       combinedMessage = `${combinedMessage} | ${domainResult.message}`;
-      if (!domainResult.status) {
+      const domainState = domainResult.meta?.domainState;
+      if (domainState === 'critical' || domainState === 'expired') {
         combinedStatus = false;
       }
     }
