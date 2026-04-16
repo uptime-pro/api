@@ -15,6 +15,8 @@ async function bootstrap(): Promise<void> {
     exclude: [
       { path: 'health', method: RequestMethod.GET },
       { path: 'metrics', method: RequestMethod.GET },
+      { path: 'admin/queues', method: RequestMethod.ALL },
+      { path: 'admin/queues/(.*)', method: RequestMethod.ALL },
     ],
   });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));

@@ -27,6 +27,7 @@ import { CreateNotificationDto } from './dto/create-notification.dto.js';
 import { UpdateNotificationDto } from './dto/update-notification.dto.js';
 import { AssignNotificationsDto } from './dto/assign-notifications.dto.js';
 import { NotificationResponseDto } from './dto/notification-response.dto.js';
+import { TestNotificationDto } from './dto/test-notification.dto.js';
 
 @ApiTags('notifications')
 @ApiBearerAuth()
@@ -52,6 +53,14 @@ export class NotificationController {
     @Body() dto: CreateNotificationDto,
   ) {
     return this.notificationService.create(user.sub, dto);
+  }
+
+  @Post('notifications/test')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Send a test notification using provided config (no saved channel needed)' })
+  @ApiResponse({ status: 204, description: 'Test sent' })
+  sendTestDirect(@Body() dto: TestNotificationDto) {
+    return this.notificationService.sendTestDirect(dto.type, dto.config);
   }
 
   @Get('notifications/monitor/:monitorId')

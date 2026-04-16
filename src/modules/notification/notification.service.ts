@@ -176,6 +176,19 @@ export class NotificationService {
     });
   }
 
+  async sendTestDirect(type: string, config: Record<string, unknown>): Promise<void> {
+    const strategy = this.registry.getStrategy(type);
+    await strategy.send(config, {
+      monitorName: 'Test Monitor',
+      monitorId: 0,
+      status: true,
+      previousStatus: null,
+      message: 'This is a test notification from Uptime Pro.',
+      ping: 42,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   async getMonitorNotifications(monitorId: number, userId: number, role?: string): Promise<number[]> {
     const monitor = await this.prisma.monitor.findUnique({ where: { id: monitorId } });
     if (!monitor) throw new NotFoundException(`Monitor ${monitorId} not found`);
