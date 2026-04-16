@@ -23,4 +23,10 @@ export class InfrastructureController {
   getDragonfly() {
     return this.service.getDragonflyInfo();
   }
+
+  @Get('postgres')
+  @ApiOperation({ summary: 'Get PostgreSQL database stats' })
+  getPostgres() {
+    return this.service.getPostgresStats();
+  }
 }

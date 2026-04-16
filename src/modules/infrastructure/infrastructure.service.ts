@@ -3,6 +3,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+import { Pool } from 'pg';
 import { MONITOR_QUEUE, NOTIFICATION_QUEUE } from '../../queue/queue.module.js';
 
 @Injectable()
@@ -84,6 +85,93 @@ export class InfrastructureService {
       };
     } finally {
       try { redis.disconnect(); } catch { /* ignore */ }
+    }
+  }
+
+  async getPostgresStats() {
+    const connectionString = this.config.get<string>('DATABASE_URL');
+    const pool = new Pool({ connectionString, max: 2, connectionTimeoutMillis: 5000 });
+    const client = await pool.connect();
+    try {
+      const [dbRow, activityRow, tableRow, pgVersion] = await Promise.all([
+        client.query<{
+          db_size: string; numbackends: string; xact_commit: string;
+          xact_rollback: string; blks_read: string; blks_hit: string;
+          deadlocks: string; conflicts: string; temp_bytes: string;
+        }>(`
+          SELECT
+            pg_size_pretty(pg_database_size(current_database())) AS db_size,
+            numbackends, xact_commit, xact_rollback,
+            blks_read, blks_hit, deadlocks, conflicts, temp_bytes
+          FROM pg_stat_database
+          WHERE datname = current_database()
+        `),
+        client.query<{ active: string; idle: string; idle_in_transaction: string; waiting: string }>(`
+          SELECT
+            COUNT(*) FILTER (WHERE state = 'active') AS active,
+            COUNT(*) FILTER (WHERE state = 'idle') AS idle,
+            COUNT(*) FILTER (WHERE state = 'idle in transaction') AS idle_in_transaction,
+            COUNT(*) FILTER (WHERE wait_event IS NOT NULL) AS waiting
+          FROM pg_stat_activity
+          WHERE datname = current_database()
+        `),
+        client.query<{ table_count: string; total_rows: string; dead_rows: string; index_count: string }>(`
+          SELECT
+            COUNT(*) AS table_count,
+            COALESCE(SUM(n_live_tup), 0) AS total_rows,
+            COALESCE(SUM(n_dead_tup), 0) AS dead_rows,
+            (SELECT COUNT(*) FROM pg_indexes WHERE schemaname = 'public') AS index_count
+          FROM pg_stat_user_tables
+          WHERE schemaname = 'public'
+        `),
+        client.query<{ version: string }>(`SELECT version()`),
+      ]);
+
+      const db = dbRow.rows[0];
+      const activity = activityRow.rows[0];
+      const tables = tableRow.rows[0];
+
+      const blksRead = parseInt(db.blks_read ?? '0', 10);
+      const blksHit = parseInt(db.blks_hit ?? '0', 10);
+      const cacheHitRate = blksRead + blksHit > 0
+        ? Math.round((blksHit / (blksRead + blksHit)) * 100)
+        : 100;
+
+      const versionFull = pgVersion.rows[0]?.version ?? '';
+      const versionShort = versionFull.match(/PostgreSQL (\d+\.\d+)/)?.[1] ?? versionFull;
+
+      return {
+        status: 'connected' as const,
+        version: versionShort,
+        databaseSize: db.db_size,
+        connections: {
+          active: parseInt(activity.active ?? '0', 10),
+          idle: parseInt(activity.idle ?? '0', 10),
+          idleInTransaction: parseInt(activity.idle_in_transaction ?? '0', 10),
+          waiting: parseInt(activity.waiting ?? '0', 10),
+        },
+        transactions: {
+          committed: parseInt(db.xact_commit ?? '0', 10),
+          rolledBack: parseInt(db.xact_rollback ?? '0', 10),
+        },
+        cacheHitRate,
+        deadlocks: parseInt(db.deadlocks ?? '0', 10),
+        conflicts: parseInt(db.conflicts ?? '0', 10),
+        tables: {
+          count: parseInt(tables.table_count ?? '0', 10),
+          totalRows: parseInt(tables.total_rows ?? '0', 10),
+          deadRows: parseInt(tables.dead_rows ?? '0', 10),
+          indexCount: parseInt(tables.index_count ?? '0', 10),
+        },
+      };
+    } catch (err) {
+      return {
+        status: 'error' as const,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    } finally {
+      client.release();
+      await pool.end();
     }
   }
 }
